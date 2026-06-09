@@ -313,27 +313,49 @@ class TextDataReader(BaseDataReader):
                                            re.match(r'^\s*\d+\s+\d+\s*$', line)):
                     header_skipped = True
                     continue
-                parts = re.split(r'[\s,;]+', line)
+                parts = re.split(r'[\s,;|]+', line)
                 if len(parts) < 3:
                     continue
 
                 station_id = parts[0]
+                matched_city = None
+                for city in cities:
+                    if city["station_id"] == station_id:
+                        matched_city = city
+                        break
+                if matched_city is None:
+                    for city in cities:
+                        if city["name_short"] in parts or \
+                           city["name"] in parts:
+                            matched_city = city
+                            break
+
                 try:
                     values = [float(p) if p not in ('9999', '-9999', 'NA', 'NaN', '')
                               else None for p in parts[1:]]
                 except ValueError:
+                    values = []
+                    for p in parts[1:]:
+                        try:
+                            if p in ('9999', '-9999', 'NA', 'NaN', ''):
+                                values.append(None)
+                            else:
+                                values.append(float(p))
+                        except ValueError:
+                            continue
+
+                if len(values) < 1:
                     continue
 
-                for city in cities:
-                    if city["station_id"] == station_id or \
-                       city["name_short"] in line or \
-                       city["name"] in line:
-                        var_idx = self._get_variable_index(variable_name,
-                                                           len(values))
-                        if var_idx is not None and var_idx < len(values):
-                            results[city["name_short"]] = values[var_idx]
-                        elif values:
-                            results[city["name_short"]] = values[-1]
+                if matched_city is None:
+                    continue
+
+                var_idx = self._get_variable_index(variable_name,
+                                                   len(values))
+                if var_idx is not None and var_idx < len(values):
+                    results[matched_city["name_short"]] = values[var_idx]
+                elif values:
+                    results[matched_city["name_short"]] = values[-1]
 
         except Exception as e:
             logger.warning(f"文本读取失败 ({filepath}): {e}")
@@ -352,7 +374,17 @@ class TextDataReader(BaseDataReader):
             "wind_max": 2,
             "10si": 2,
         }
-        idx = mapping.get(variable_name, 0)
+        extended_mapping = {
+            "precip_12h": 2,
+            "precip_1h": 3,
+            "tp": 2,
+            "wind_max": 4,
+            "10si": 4,
+        }
+        if max_idx >= 5:
+            idx = extended_mapping.get(variable_name, 2)
+        else:
+            idx = mapping.get(variable_name, 0)
         return idx if idx < max_idx else None
 
     def _mock_read(self, cities: List[Dict],
@@ -730,20 +762,31 @@ class ECMWFOpenDataReader(BaseDataReader):
         super().__init__(source_config, method)
         self.url_template = source_config.get(
             "url_template",
-            "https://data.ecmwf.int/forecasts/{date}/{time}/ifs/0p25/"
-            "{stream}/{file_format}/{resolution}/"
-            "{date}{time}0000-{step}h-{stream}.{file_format}"
+            "https://data.ecmwf.int/forecasts/{date}/{cycle:02d}z/ifs/"
+            "{resolution}/oper/{date}{cycle:02d}0000-{fhour:03d}h-oper-fc.{file_format}"
         )
         self.download = source_config.get("download", True)
         self.resolution = source_config.get("resolution", "0p25")
         self.stream = source_config.get("stream", "oper")
         self.file_format = source_config.get("file_format", "grib2")
-        self.cache_dir = source_config.get("cache_dir", "./.cache/ecmwf")
+        self.cache_dir = source_config.get(
+            "cache_dir",
+            source_config.get("download", {}).get("cache_dir", "./.cache/ecmwf")
+        )
         self.max_age_hours = source_config.get("max_age_hours", 24)
         self.forecast_step = source_config.get("forecast_step", 0)
+        self.utc_cycle_map = source_config.get(
+            "utc_cycle_map",
+            source_config.get("download", {}).get("utc_cycle_map", {})
+        )
+        self.valid_cycles = source_config.get(
+            "valid_cycles", [0, 6, 12, 18]
+        )
+        self.request_params = source_config.get("request_params", {})
 
     def _parse_date_hint(self, filepath: str) -> Tuple[str, str, int]:
-        """从 filepath/hint 中解析 date(YYYYMMDD), time(HH), step"""
+        """从 filepath/hint 中解析 date(YYYYMMDD), time(HH), step，
+        并将北京时间 cycle 映射到 UTC cycle"""
         date_str = datetime.now().strftime("%Y%m%d")
         time_str = "00"
         step = int(self.forecast_step)
@@ -756,39 +799,91 @@ class ECMWFOpenDataReader(BaseDataReader):
                 if m:
                     date_str = m.group(1)[:8]
                     time_str = m.group(1)[8:10]
-                m = re.search(r"(\d+)h", filepath)
+                m = re.search(r"_(\d{3})([._/]|$)", filepath)
                 if m:
                     step = int(m.group(1))
+                else:
+                    m = re.search(r"(\d+)h", filepath)
+                    if m:
+                        step = int(m.group(1))
+        except Exception:
+            pass
+
+        # 处理北京时间到 UTC 的映射
+        try:
+            hh = int(time_str) % 24
+            if self.utc_cycle_map and str(hh) in self.utc_cycle_map:
+                utc_hh = int(self.utc_cycle_map[str(hh)])
+                time_str = f"{utc_hh:02d}"
+            elif hh not in set(self.valid_cycles):
+                nearest = min(
+                    self.valid_cycles,
+                    key=lambda c: min(abs(c - hh), 24 - abs(c - hh))
+                )
+                time_str = f"{nearest:02d}"
+                logger.info(
+                    f"{self.name}: 解析出 BJT {hh:02d} 不在 ECMWF 发布时刻，"
+                    f"使用最近的 UTC {time_str}Z"
+                )
         except Exception:
             pass
         return date_str, time_str, step
 
     def _build_url(self, date_str: str, time_str: str, step: int) -> str:
         try:
+            cycle = int(time_str)
             return self.url_template.format(
-                date=date_str, time=time_str, step=step,
-                cycle=time_str, fhour=step,
+                date=date_str, cycle=cycle, fhour=int(step),
+                time=time_str, step=step,
                 resolution=self.resolution, stream=self.stream,
                 file_format=self.file_format
             )
         except Exception as e:
-            logger.warning(f"URL模板构建失败: {e}")
+            logger.warning(f"{self.name}: URL模板构建失败: {e}")
             return ""
 
-    def _try_ecmwf_opendata(self, url: str, target_path: str) -> bool:
-        """尝试使用 ecmwf-opendata 包下载"""
+    def _try_ecmwf_opendata(self, date_str: str, time_str: str,
+                            step: int, target_path: str) -> bool:
+        """尝试使用 ecmwf-opendata 包下载指定变量
+
+        参数:
+            date_str -- YYYYMMDD 格式的日期
+            time_str -- HH 格式的起报时刻 (UTC)
+            step     -- 预报时效 (小时)
+            target_path -- 输出文件路径
+        """
         try:
             from ecmwf.opendata import Client
-            client = Client(source="ecmwf" if "ecmwf" in url else "azure")
-            client.retrieve(
-                request={},
-                target=target_path,
+            client = Client(source="ecmwf")
+            # 优先用 source_config 里配置的 request_params，否则构造默认请求
+            req = dict(self.config.get("request_params", {}) or {})
+            # 强制覆盖动态参数
+            req["date"] = int(date_str)
+            try:
+                req["time"] = int(time_str)
+            except (ValueError, TypeError):
+                req["time"] = int(time_str.lstrip("0") or "0")
+            req["step"] = int(step)
+            if "param" not in req or not req["param"]:
+                # 保证 param 字段存在（默认下载降水和 10si，地面风速
+                req["param"] = ["tp", "10si"]
+            if "type" not in req:
+                req["type"] = "fc"
+            if "stream" not in req:
+                req["stream"] = "oper"
+            if "levtype" not in req:
+                req["levtype"] = "sfc"
+            logger.info(
+                "{}: ECMWF 下载 date={}, time={}, step={}, param={}".format(
+                    self.name, req.get("date"), req.get("time"),
+                    req.get("step"), req.get("param"))
             )
+            client.retrieve(request=req, target=target_path)
             return os.path.exists(target_path) and os.path.getsize(target_path) > 0
         except ImportError:
             return False
         except Exception as e:
-            logger.warning(f"ecmwf-opendata下载失败: {e}")
+            logger.warning("{}: ecmwf-opendata 下载失败: {}".format(self.name, e))
             return False
 
     def read_variable(self, filepath: str, variable_name: str,
@@ -798,13 +893,15 @@ class ECMWFOpenDataReader(BaseDataReader):
         try:
             date_str, time_str, step = self._parse_date_hint(filepath)
             url = self._build_url(date_str, time_str, step)
-            if not url:
-                logger.warning(f"{self.name}: 无法构建下载URL，回退到mock")
-                return self._mock_read(cities, variable_name)
 
             ensure_cache_dir(self.cache_dir)
-            target_path = get_cached_filepath(self.cache_dir, url)
+            # 以"请求变量-日期-时刻-时效"作为缓存键
+            cache_key = "ec_{}_{}_{}z_{:03d}h_{}.grib2".format(
+                date_str, time_str, step, variable_name)
+            target_path = os.path.join(self.cache_dir, cache_key)
 
+            # 对于 10si (合成风速), 需要 10u 和 10v 两条消息
+            # 直接用完整参数请求 (包含 tp/10u/10v), 然后从同一 GRIB 中读不同变量
             if is_cache_fresh(target_path, self.max_age_hours):
                 results = _pygrib_read_variable(target_path, variable_name,
                                                 cities, self.method)
@@ -812,8 +909,9 @@ class ECMWFOpenDataReader(BaseDataReader):
                     return results
 
             if self.download:
-                ok = self._try_ecmwf_opendata(url, target_path)
-                if not ok:
+                ok = self._try_ecmwf_opendata(date_str, time_str, step,
+                                              target_path)
+                if not ok and url:
                     ok = http_download_with_retry(url, target_path)
                 if ok:
                     results = _pygrib_read_variable(target_path, variable_name,
@@ -833,7 +931,118 @@ class ECMWFOpenDataReader(BaseDataReader):
 
 
 # ============================================================================
-# 新增部分 C：NCEP GFS 读取器
+# 新增部分 C：观测数据读取器
+# ============================================================================
+class ObservationDataReader(BaseDataReader):
+    """实况观测数据读取器（站点文本文件）"""
+
+    def __init__(self, source_config: Dict, method: str = "bilinear"):
+        super().__init__(source_config, method)
+        fmt = source_config.get("obs_format", {}) or {}
+        self.delimiter = fmt.get("delimiter", "|")
+        self.columns = fmt.get(
+            "columns",
+            ["station_id", "name", "lon", "lat",
+             "precip_12h", "precip_1h", "wind_max_mps", "wind_max_grade"]
+        )
+        self.comment_char = fmt.get("comment_char", "#")
+        self.encoding = fmt.get("encoding", "utf-8")
+
+    def _map_variable(self, variable_name: str) -> Optional[str]:
+        """将外部变量名映射到文件列名"""
+        mapping = {
+            "precip_12h": "precip_12h",
+            "precip_1h": "precip_1h",
+            "wind_max": "wind_max_mps",
+            "tp": "precip_12h",
+            "10si": "wind_max_mps",
+        }
+        return mapping.get(variable_name)
+
+    def _parse_value(self, raw: str) -> Optional[float]:
+        try:
+            v = float(raw.strip())
+            if not (v == v and abs(v) < 1e9):
+                return None
+            return v
+        except (ValueError, TypeError, AttributeError):
+            return None
+
+    def read_variable(self, filepath: str, variable_name: str,
+                      cities: List[Dict]) -> Dict[str, Optional[float]]:
+        results = {city["name_short"]: None for city in cities}
+
+        if not os.path.exists(filepath):
+            logger.warning(f"观测文件不存在: {filepath}，回退到 mock")
+            return self._mock_read(cities, variable_name)
+
+        target_col = self._map_variable(variable_name)
+        if target_col is None or target_col not in self.columns:
+            logger.warning(
+                f"{self.name}: 变量 {variable_name} 未在观测列中定义"
+            )
+            return self._mock_read(cities, variable_name)
+        col_idx = self.columns.index(target_col)
+
+        try:
+            with open(filepath, 'r', encoding=self.encoding,
+                      errors='ignore') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith(self.comment_char):
+                        continue
+                    parts = [p.strip() for p in line.split(self.delimiter)]
+                    if len(parts) < max(col_idx, 2) + 1:
+                        continue
+
+                    row_station = parts[0] if len(parts) > 0 else ""
+                    row_name = parts[1] if len(parts) > 1 else ""
+
+                    for city in cities:
+                        if results[city["name_short"]] is not None:
+                            continue
+                        matched = False
+                        if city.get("station_id") and \
+                                row_station == city["station_id"]:
+                            matched = True
+                        if not matched and row_name:
+                            # 城市名模糊匹配（name_short 或 name 字段）
+                            cname = city.get("name_short", "") or \
+                                city.get("name", "")
+                            if cname and (cname in row_name or
+                                           row_name in cname):
+                                matched = True
+                        if matched:
+                            results[city["name_short"]] = self._parse_value(
+                                parts[col_idx]
+                            )
+
+            if any(v is None for v in results.values()):
+                logger.info(
+                    f"{self.name}: 部分城市无观测数据，使用 None 值"
+                )
+            return results
+        except Exception as e:
+            logger.warning(f"{self.name}: 观测文件读取失败: {e}")
+            return self._mock_read(cities, variable_name)
+
+    def _mock_read(self, cities: List[Dict],
+                   variable_name: str) -> Dict[str, Optional[float]]:
+        np.random.seed(hash(f"{self.name}_{variable_name}_obs") % 2**32)
+        results = {}
+        for city in cities:
+            if variable_name in ("precip_12h", "precip_1h", "tp"):
+                val = float(np.random.uniform(0.0, 5.0))
+            elif variable_name in ("wind_max", "10si", "ws"):
+                val = float(np.random.uniform(2.0, 8.0))
+            else:
+                val = float(np.random.uniform(0.0, 5.0))
+            results[city["name_short"]] = val
+        return results
+
+
+# ============================================================================
+# 新增部分 D：NCEP GFS 读取器
 # ============================================================================
 class NCEPGFSReader(BaseDataReader):
     """NCEP GFS 读取器（herbie 或 HTTP 直连 AWS/NOMADS）"""
@@ -1111,6 +1320,7 @@ READER_CLASSES = {
     "ecmwf": ECMWFOpenDataReader,
     "gfs": NCEPGFSReader,
     "grapes": CMAGRAPESReader,
+    "obs": ObservationDataReader,
 }
 
 

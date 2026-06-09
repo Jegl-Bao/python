@@ -133,13 +133,21 @@ DATA_SOURCES = [
         },
         "path_pattern": "./data/ec/{date}/EC_{date}{cycle:02d}_{fhour:03d}.grb",
         "enabled": True,
-        "url_template": "https://data.ecmwf.int/forecasts/{date}/{cycle}z/ifs/{resolution}/oper/{date}{cycle}0000-{fhour}h-oper-fc.{file_format}",
+        "url_template": "https://data.ecmwf.int/forecasts/{date}/{cycle:02d}z/ifs/{resolution}/oper/{date}{cycle:02d}0000-{fhour:03d}h-oper-fc.{file_format}",
+        "valid_cycles": [0, 6, 12, 18],
+        "request_params": {
+            "type": "fc",
+            "stream": "oper",
+            "levtype": "sfc",
+            "param": ["tp", "10u", "10v"],
+        },
         "download": {
             "enabled": True,
             "cache_dir": "./data/EC/",
             "timeout": 60,
             "retries": 3,
             "backend": "ecmwf",
+            "utc_cycle_map": {"8": 0, "20": 12},
         },
         "resolution": "0p4-beta",
         "stream": "oper",
@@ -224,8 +232,8 @@ DATA_SOURCES = [
     {
         "name": "OBS",
         "description": "实况观测（用于偏差校正）",
-        "type": "text",
-        "weight": 0.10,
+        "type": "obs",
+        "weight": 0.15,
         "variables": {
             "precip_12h": "precip_12h",
             "precip_1h": "precip_1h",
@@ -233,18 +241,22 @@ DATA_SOURCES = [
         },
         "path_pattern": "./data/obs/{date}/OBS_{date}.txt",
         "enabled": True,
-        "url_template": "https://data.rda.ucar.edu/ds083.2/{year}/{month}/fnl_{date}_{cycle}_00.grib2",
+        "url_template": "",
+        "obs_format": {
+            "delimiter": "|",
+            "columns": ["station_id", "name", "lon", "lat",
+                        "precip_12h", "precip_1h", "wind_max_mps",
+                        "wind_max_grade"],
+            "comment_char": "#",
+            "encoding": "utf-8",
+        },
         "download": {
-            "enabled": True,
-            "cache_dir": "./data/OBS/",
+            "enabled": False,
+            "cache_dir": "./data/obs/",
             "timeout": 60,
             "retries": 3,
-            "backend": "http",
+            "backend": "obs",
         },
-        "resolution": "1deg",
-        "stream": "fnl",
-        "product": "analysis",
-        "file_format": "grib2",
     },
 ]
 
@@ -254,6 +266,8 @@ DATA_SOURCES = [
 FORECAST_CONFIG = {
     # 起报时刻（08时和20时，北京时间）
     "cycles": [8, 20],
+    # 有效的 UTC 起报时刻
+    "valid_utc_cycles": [0, 6, 12, 18],
     # 预报时效（12小时累计，所以预报12小时）
     "forecast_hours": 12,
     # 需要输出的变量
