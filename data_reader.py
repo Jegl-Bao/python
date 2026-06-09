@@ -896,8 +896,12 @@ class ECMWFOpenDataReader(BaseDataReader):
 
             ensure_cache_dir(self.cache_dir)
             # 以"请求变量-日期-时刻-时效"作为缓存键
-            cache_key = "ec_{}_{}_{}z_{:03d}h_{}.grib2".format(
-                date_str, time_str, step, variable_name)
+            try:
+                step_int = int(step)
+            except (ValueError, TypeError):
+                step_int = 0
+            cache_key = "ec_{}_{}_{:02d}z_{:03d}h_{}.grib2".format(
+                date_str, time_str, int(time_str), step_int, variable_name)
             target_path = os.path.join(self.cache_dir, cache_key)
 
             # 对于 10si (合成风速), 需要 10u 和 10v 两条消息
