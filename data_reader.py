@@ -645,6 +645,25 @@ def _pygrib_read_variable(filepath: str, variable_name: str,
                           ) -> Dict[str, Optional[float]]:
     """使用 pygrib 读取 GRIB 文件并按城市坐标插值"""
     results = {city["name_short"]: None for city in cities}
+
+    # 变量名 -> GRIB 字段的关键词映射（多源模式兼容）
+    var_keywords = {
+        "tp": ["total precipitation", "precipitation", "precip",
+               "tp", "apcp"],
+        "precip": ["total precipitation", "precipitation", "precip",
+                   "tp", "apcp"],
+        "10si": ["wind speed", "10 metre wind speed", "wind gust",
+                 "u-component of wind", "v-component of wind", "10u", "10v",
+                 "10si"],
+        "ws": ["wind speed", "10 metre wind speed", "wind gust"],
+        "wind": ["wind speed", "10 metre wind speed", "wind gust"],
+        "tmax": ["maximum temperature", "tmax"],
+        "tmin": ["minimum temperature", "tmin"],
+        "2t": ["temperature", "2 metre temperature", "t2m"],
+        "2d": ["dew point", "2 metre dew point temperature", "d2m"],
+        "sp": ["surface pressure", "sp", "mslp", "pressure"],
+    }
+    keywords = var_keywords.get(variable_name, [variable_name])
     try:
         import pygrib
         if not os.path.exists(filepath):
@@ -652,9 +671,13 @@ def _pygrib_read_variable(filepath: str, variable_name: str,
         grbs = pygrib.open(filepath)
         matched = None
         for msg in grbs:
-            if variable_name in msg.name.lower() or \
-               variable_name in str(msg.shortName).lower():
-                matched = msg
+            name_lower = msg.name.lower()
+            short = str(getattr(msg, "shortName", "")).lower()
+            for kw in keywords:
+                if kw in name_lower or kw in short:
+                    matched = msg
+                    break
+            if matched is not None:
                 break
         if matched is None:
             try:
@@ -744,6 +767,7 @@ class ECMWFOpenDataReader(BaseDataReader):
         try:
             return self.url_template.format(
                 date=date_str, time=time_str, step=step,
+                cycle=time_str, fhour=step,
                 resolution=self.resolution, stream=self.stream,
                 file_format=self.file_format
             )
@@ -818,9 +842,12 @@ class NCEPGFSReader(BaseDataReader):
         super().__init__(source_config, method)
         self.url_template = source_config.get(
             "url_template",
-            "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/"
-            "gfs.{date}/{time}/atmos/"
-            "gfs.t{time}z.pgrb2.0p25.f{step:03d}"
+            "https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl"
+            "?file=gfs.t{time}z.pgrb2.0p25.f{step:03d}"
+            "&lev_10_m_above_ground=on&lev_surface=on"
+            "&var_APCP=on&var_GUST=on&var_TMAX=on&var_TMIN=on"
+            "&leftlon=0&rightlon=360&toplat=90&bottomlat=-90"
+            "&dir=%2Fgfs.{date}%2F{time}%2Fatmos"
         )
         self.aws_url_template = source_config.get(
             "aws_url_template",
@@ -844,22 +871,35 @@ class NCEPGFSReader(BaseDataReader):
                 m = re.search(r"(\d{8})", filepath)
                 if m:
                     date_str = m.group(1)
-                m = re.search(r"(\d{10})", filepath)
+                m = re.search(r"(\d{8})(\d{2})", filepath)
                 if m:
-                    date_str = m.group(1)[:8]
-                    time_str = m.group(1)[8:10]
-                m = re.search(r"(\d+)h", filepath)
+                    time_str = m.group(2)
+                m = re.search(r"_(\d{3})([._/]|$)", filepath)
                 if m:
                     step = int(m.group(1))
+                else:
+                    m = re.search(r"(\d+)h", filepath)
+                    if m:
+                        step = int(m.group(1))
         except Exception:
             pass
+        valid_cycles = {0, 6, 12, 18}
+        hh = int(time_str) % 24
+        if hh not in valid_cycles:
+            nearest = min(valid_cycles, key=lambda c: min(abs(c - hh), 24 - abs(c - hh)))
+            time_str = f"{nearest:02d}"
+            logger.info(f"{self.name}: 请求时刻 {hh:02d}Z 非 GFS 发布时刻，使用最近的 {time_str}Z")
         return date_str, time_str, step
 
     def _build_url(self, date_str: str, time_str: str, step: int,
                    use_aws: bool = False) -> str:
         tmpl = self.aws_url_template if use_aws else self.url_template
         try:
-            return tmpl.format(date=date_str, time=time_str, step=int(step))
+            return tmpl.format(date=date_str, time=time_str, step=int(step),
+                               cycle=time_str, fhour=int(step),
+                               resolution=self.product.split(".", 1)[1]
+                               if self.product.startswith("pgrb")
+                               else self.product)
         except Exception as e:
             logger.warning(f"GFS URL模板构建失败: {e}")
             return ""
@@ -1079,7 +1119,8 @@ def create_reader(source_config: Dict, method: str = "bilinear",
     """
     根据配置创建相应的数据读取器
     """
-    backend = source_config.get("backend")
+    backend = source_config.get("backend") or source_config.get(
+        "download", {}).get("backend")
     if backend and backend in READER_CLASSES:
         reader_class = READER_CLASSES[backend]
     else:
