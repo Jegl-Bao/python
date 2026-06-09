@@ -1,0 +1,1157 @@
+{
+  "metadata": {
+    "title": "内蒙古自治区多源融合预报",
+    "forecast_date": "20250101",
+    "cycle": 8,
+    "forecast_hours": 12,
+    "fusion_method": "weighted_average",
+    "generated_at": "2026-06-09 11:40:39",
+    "variables": [
+      {
+        "name": "precip_12h",
+        "display_name": "12小时累计降水量",
+        "unit": "mm"
+      },
+      {
+        "name": "precip_1h_max",
+        "display_name": "最大小时降水量",
+        "unit": "mm/h"
+      },
+      {
+        "name": "wind_max",
+        "display_name": "最大风力等级",
+        "unit": "级"
+      }
+    ]
+  },
+  "results": [
+    {
+      "city": "呼和浩特",
+      "city_full": "呼和浩特市",
+      "lon": 111.65,
+      "lat": 40.82,
+      "station_id": "53463",
+      "sources": {
+        "precip_12h": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 3.93416913447189
+        },
+        "precip_1h_max": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 2.164144994894284
+        },
+        "wind_max": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 2.349816942210695
+        }
+      },
+      "fused": {
+        "precip_12h": 3.93416913447189,
+        "precip_1h_max": 2.164144994894284,
+        "wind_max": 2.349816942210695
+      },
+      "statistics": {
+        "precip_12h": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            3.93416913447189
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 3.93416913447189,
+          "max": 3.93416913447189,
+          "mean": 3.93416913447189,
+          "median": 3.93416913447189,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        },
+        "precip_1h_max": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            2.164144994894284
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 2.164144994894284,
+          "max": 2.164144994894284,
+          "mean": 2.164144994894284,
+          "median": 2.164144994894284,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        },
+        "wind_max": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            2.349816942210695
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 2.349816942210695,
+          "max": 2.349816942210695,
+          "mean": 2.349816942210695,
+          "median": 2.349816942210695,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        }
+      }
+    },
+    {
+      "city": "包头",
+      "city_full": "包头市",
+      "lon": 109.85,
+      "lat": 40.66,
+      "station_id": "53466",
+      "sources": {
+        "precip_12h": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 9.467772023872918
+        },
+        "precip_1h_max": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 3.863145243937992
+        },
+        "wind_max": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 5.545106919777122
+        }
+      },
+      "fused": {
+        "precip_12h": 9.467772023872918,
+        "precip_1h_max": 3.863145243937992,
+        "wind_max": 5.545106919777122
+      },
+      "statistics": {
+        "precip_12h": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            9.467772023872918
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 9.467772023872918,
+          "max": 9.467772023872918,
+          "mean": 9.467772023872918,
+          "median": 9.467772023872918,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        },
+        "precip_1h_max": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            3.863145243937992
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 3.863145243937992,
+          "max": 3.863145243937992,
+          "mean": 3.863145243937992,
+          "median": 3.863145243937992,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        },
+        "wind_max": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            5.545106919777122
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 5.545106919777122,
+          "max": 5.545106919777122,
+          "mean": 5.545106919777122,
+          "median": 5.545106919777122,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        }
+      }
+    },
+    {
+      "city": "乌海",
+      "city_full": "乌海市",
+      "lon": 106.78,
+      "lat": 39.65,
+      "station_id": "53512",
+      "sources": {
+        "precip_12h": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 5.17890546358009
+        },
+        "precip_1h_max": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 3.5948404707908486
+        },
+        "wind_max": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 3.947163854622272
+        }
+      },
+      "fused": {
+        "precip_12h": 5.17890546358009,
+        "precip_1h_max": 3.5948404707908486,
+        "wind_max": 3.947163854622272
+      },
+      "statistics": {
+        "precip_12h": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            5.17890546358009
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 5.17890546358009,
+          "max": 5.17890546358009,
+          "mean": 5.17890546358009,
+          "median": 5.17890546358009,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        },
+        "precip_1h_max": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            3.5948404707908486
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 3.5948404707908486,
+          "max": 3.5948404707908486,
+          "mean": 3.5948404707908486,
+          "median": 3.5948404707908486,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        },
+        "wind_max": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            3.947163854622272
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 3.947163854622272,
+          "max": 3.947163854622272,
+          "mean": 3.947163854622272,
+          "median": 3.947163854622272,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        }
+      }
+    },
+    {
+      "city": "赤峰",
+      "city_full": "赤峰市",
+      "lon": 118.95,
+      "lat": 42.28,
+      "station_id": "54218",
+      "sources": {
+        "precip_12h": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 3.7219835076974626
+        },
+        "precip_1h_max": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 2.9794586273938575
+        },
+        "wind_max": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 12.284906548741114
+        }
+      },
+      "fused": {
+        "precip_12h": 3.7219835076974626,
+        "precip_1h_max": 2.9794586273938575,
+        "wind_max": 12.284906548741114
+      },
+      "statistics": {
+        "precip_12h": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            3.7219835076974626
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 3.7219835076974626,
+          "max": 3.7219835076974626,
+          "mean": 3.7219835076974626,
+          "median": 3.7219835076974626,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        },
+        "precip_1h_max": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            2.9794586273938575
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 2.9794586273938575,
+          "max": 2.9794586273938575,
+          "mean": 2.9794586273938575,
+          "median": 2.9794586273938575,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        },
+        "wind_max": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            12.284906548741114
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 12.284906548741114,
+          "max": 12.284906548741114,
+          "mean": 12.284906548741114,
+          "median": 12.284906548741114,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        }
+      }
+    },
+    {
+      "city": "通辽",
+      "city_full": "通辽市",
+      "lon": 122.28,
+      "lat": 43.61,
+      "station_id": "54135",
+      "sources": {
+        "precip_12h": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 1.1158578006178024
+        },
+        "precip_1h_max": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 6.5242375712178164
+        },
+        "wind_max": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 14.793008304810563
+        }
+      },
+      "fused": {
+        "precip_12h": 1.1158578006178024,
+        "precip_1h_max": 6.5242375712178164,
+        "wind_max": 14.793008304810563
+      },
+      "statistics": {
+        "precip_12h": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            1.1158578006178024
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 1.1158578006178024,
+          "max": 1.1158578006178024,
+          "mean": 1.1158578006178024,
+          "median": 1.1158578006178024,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        },
+        "precip_1h_max": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            6.5242375712178164
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 6.5242375712178164,
+          "max": 6.5242375712178164,
+          "mean": 6.5242375712178164,
+          "median": 6.5242375712178164,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        },
+        "wind_max": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            14.793008304810563
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 14.793008304810563,
+          "max": 14.793008304810563,
+          "mean": 14.793008304810563,
+          "median": 14.793008304810563,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        }
+      }
+    },
+    {
+      "city": "鄂尔多斯",
+      "city_full": "鄂尔多斯市",
+      "lon": 109.78,
+      "lat": 39.61,
+      "station_id": "53543",
+      "sources": {
+        "precip_12h": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 2.8884399255191107
+        },
+        "precip_1h_max": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 3.5969317233056253
+        },
+        "wind_max": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 8.257016917510294
+        }
+      },
+      "fused": {
+        "precip_12h": 2.8884399255191107,
+        "precip_1h_max": 3.5969317233056253,
+        "wind_max": 8.257016917510294
+      },
+      "statistics": {
+        "precip_12h": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            2.8884399255191107
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 2.8884399255191107,
+          "max": 2.8884399255191107,
+          "mean": 2.8884399255191107,
+          "median": 2.8884399255191107,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        },
+        "precip_1h_max": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            3.5969317233056253
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 3.5969317233056253,
+          "max": 3.5969317233056253,
+          "mean": 3.5969317233056253,
+          "median": 3.5969317233056253,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        },
+        "wind_max": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            8.257016917510294
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 8.257016917510294,
+          "max": 8.257016917510294,
+          "mean": 8.257016917510294,
+          "median": 8.257016917510294,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        }
+      }
+    },
+    {
+      "city": "呼伦贝尔",
+      "city_full": "呼伦贝尔市",
+      "lon": 119.75,
+      "lat": 49.22,
+      "station_id": "50527",
+      "sources": {
+        "precip_12h": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 3.770698747192622
+        },
+        "precip_1h_max": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 5.462896059436078
+        },
+        "wind_max": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 3.4782208495802887
+        }
+      },
+      "fused": {
+        "precip_12h": 3.770698747192622,
+        "precip_1h_max": 5.462896059436078,
+        "wind_max": 3.4782208495802887
+      },
+      "statistics": {
+        "precip_12h": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            3.770698747192622
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 3.770698747192622,
+          "max": 3.770698747192622,
+          "mean": 3.770698747192622,
+          "median": 3.770698747192622,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        },
+        "precip_1h_max": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            5.462896059436078
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 5.462896059436078,
+          "max": 5.462896059436078,
+          "mean": 5.462896059436078,
+          "median": 5.462896059436078,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        },
+        "wind_max": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            3.4782208495802887
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 3.4782208495802887,
+          "max": 3.4782208495802887,
+          "mean": 3.4782208495802887,
+          "median": 3.4782208495802887,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        }
+      }
+    },
+    {
+      "city": "巴彦淖尔",
+      "city_full": "巴彦淖尔市",
+      "lon": 107.38,
+      "lat": 40.74,
+      "station_id": "53439",
+      "sources": {
+        "precip_12h": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 6.313484788887396
+        },
+        "precip_1h_max": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 2.416563004921479
+        },
+        "wind_max": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 2.606248755252702
+        }
+      },
+      "fused": {
+        "precip_12h": 6.313484788887396,
+        "precip_1h_max": 2.416563004921479,
+        "wind_max": 2.606248755252702
+      },
+      "statistics": {
+        "precip_12h": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            6.313484788887396
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 6.313484788887396,
+          "max": 6.313484788887396,
+          "mean": 6.313484788887396,
+          "median": 6.313484788887396,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        },
+        "precip_1h_max": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            2.416563004921479
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 2.416563004921479,
+          "max": 2.416563004921479,
+          "mean": 2.416563004921479,
+          "median": 2.416563004921479,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        },
+        "wind_max": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            2.606248755252702
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 2.606248755252702,
+          "max": 2.606248755252702,
+          "mean": 2.606248755252702,
+          "median": 2.606248755252702,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        }
+      }
+    },
+    {
+      "city": "乌兰察布",
+      "city_full": "乌兰察布市",
+      "lon": 113.12,
+      "lat": 41.03,
+      "station_id": "53479",
+      "sources": {
+        "precip_12h": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 4.755072525238002
+        },
+        "precip_1h_max": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 6.229980352575041
+        },
+        "wind_max": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 3.8953937527878146
+        }
+      },
+      "fused": {
+        "precip_12h": 4.755072525238002,
+        "precip_1h_max": 6.229980352575041,
+        "wind_max": 3.8953937527878146
+      },
+      "statistics": {
+        "precip_12h": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            4.755072525238002
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 4.755072525238002,
+          "max": 4.755072525238002,
+          "mean": 4.755072525238002,
+          "median": 4.755072525238002,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        },
+        "precip_1h_max": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            6.229980352575041
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 6.229980352575041,
+          "max": 6.229980352575041,
+          "mean": 6.229980352575041,
+          "median": 6.229980352575041,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        },
+        "wind_max": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            3.8953937527878146
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 3.8953937527878146,
+          "max": 3.8953937527878146,
+          "mean": 3.8953937527878146,
+          "median": 3.8953937527878146,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        }
+      }
+    },
+    {
+      "city": "兴安盟",
+      "city_full": "兴安盟",
+      "lon": 122.07,
+      "lat": 46.07,
+      "station_id": "50842",
+      "sources": {
+        "precip_12h": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 4.209839372125245
+        },
+        "precip_1h_max": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 1.033774135482812
+        },
+        "wind_max": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 4.042410942747997
+        }
+      },
+      "fused": {
+        "precip_12h": 4.209839372125245,
+        "precip_1h_max": 1.033774135482812,
+        "wind_max": 4.042410942747997
+      },
+      "statistics": {
+        "precip_12h": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            4.209839372125245
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 4.209839372125245,
+          "max": 4.209839372125245,
+          "mean": 4.209839372125245,
+          "median": 4.209839372125245,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        },
+        "precip_1h_max": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            1.033774135482812
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 1.033774135482812,
+          "max": 1.033774135482812,
+          "mean": 1.033774135482812,
+          "median": 1.033774135482812,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        },
+        "wind_max": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            4.042410942747997
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 4.042410942747997,
+          "max": 4.042410942747997,
+          "mean": 4.042410942747997,
+          "median": 4.042410942747997,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        }
+      }
+    },
+    {
+      "city": "锡林郭勒",
+      "city_full": "锡林郭勒盟",
+      "lon": 116.03,
+      "lat": 43.95,
+      "station_id": "54102",
+      "sources": {
+        "precip_12h": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 4.919328955943878
+        },
+        "precip_1h_max": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 3.287852266275989
+        },
+        "wind_max": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 10.884289257112469
+        }
+      },
+      "fused": {
+        "precip_12h": 4.919328955943878,
+        "precip_1h_max": 3.287852266275989,
+        "wind_max": 10.884289257112469
+      },
+      "statistics": {
+        "precip_12h": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            4.919328955943878
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 4.919328955943878,
+          "max": 4.919328955943878,
+          "mean": 4.919328955943878,
+          "median": 4.919328955943878,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        },
+        "precip_1h_max": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            3.287852266275989
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 3.287852266275989,
+          "max": 3.287852266275989,
+          "mean": 3.287852266275989,
+          "median": 3.287852266275989,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        },
+        "wind_max": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            10.884289257112469
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 10.884289257112469,
+          "max": 10.884289257112469,
+          "mean": 10.884289257112469,
+          "median": 10.884289257112469,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        }
+      }
+    },
+    {
+      "city": "阿拉善",
+      "city_full": "阿拉善盟",
+      "lon": 105.73,
+      "lat": 38.85,
+      "station_id": "52576",
+      "sources": {
+        "precip_12h": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 3.9153447281789306
+        },
+        "precip_1h_max": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 3.6506810542656205
+        },
+        "wind_max": {
+          "EC": null,
+          "GRAPES": null,
+          "GRAPES_MESO": null,
+          "NCEP": null,
+          "OBS": 5.361305848657473
+        }
+      },
+      "fused": {
+        "precip_12h": 3.9153447281789306,
+        "precip_1h_max": 3.6506810542656205,
+        "wind_max": 5.361305848657473
+      },
+      "statistics": {
+        "precip_12h": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            3.9153447281789306
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 3.9153447281789306,
+          "max": 3.9153447281789306,
+          "mean": 3.9153447281789306,
+          "median": 3.9153447281789306,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        },
+        "precip_1h_max": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            3.6506810542656205
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 3.6506810542656205,
+          "max": 3.6506810542656205,
+          "mean": 3.6506810542656205,
+          "median": 3.6506810542656205,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        },
+        "wind_max": {
+          "sources": [
+            "OBS"
+          ],
+          "individual_values": [
+            5.361305848657473
+          ],
+          "weights": [
+            1.0
+          ],
+          "min": 5.361305848657473,
+          "max": 5.361305848657473,
+          "mean": 5.361305848657473,
+          "median": 5.361305848657473,
+          "std": 0.0,
+          "range": 0.0,
+          "count": 1,
+          "coefficient_of_variation": 0.0
+        }
+      }
+    }
+  ]
+}
