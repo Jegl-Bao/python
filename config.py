@@ -218,10 +218,10 @@ DATA_SOURCES = [
         "enabled": True,
         "url_template": "https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?file=gfs.t{cycle}z.pgrb2.0p25.f{fhour:03d}&lev_10_m_above_ground=on&lev_surface=on&var_APCP=on&var_GUST=on&var_TMAX=on&var_TMIN=on&leftlon=0&rightlon=360&toplat=90&bottomlat=-90&dir=%2Fgfs.{date}%2F{cycle}%2Fatmos",
         "download": {
-            "enabled": True,
+            "enabled": False,
             "cache_dir": "./data/NCEP/",
-            "timeout": 60,
-            "retries": 3,
+            "timeout": 30,
+            "retries": 2,
             "backend": "gfs",
         },
         "resolution": "0p25",

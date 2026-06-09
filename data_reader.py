@@ -678,23 +678,24 @@ def _pygrib_read_variable(filepath: str, variable_name: str,
     """使用 pygrib 读取 GRIB 文件并按城市坐标插值"""
     results = {city["name_short"]: None for city in cities}
 
-    # 变量名 -> GRIB 字段的关键词映射（多源模式兼容）
+    # 变量名 -> GRIB 字段关键词映射
     var_keywords = {
-        "tp": ["total precipitation", "precipitation", "precip",
-               "tp", "apcp"],
-        "precip": ["total precipitation", "precipitation", "precip",
-                   "tp", "apcp"],
-        "10si": ["wind speed", "10 metre wind speed", "wind gust",
-                 "u-component of wind", "v-component of wind", "10u", "10v",
-                 "10si"],
-        "ws": ["wind speed", "10 metre wind speed", "wind gust"],
-        "wind": ["wind speed", "10 metre wind speed", "wind gust"],
+        "tp": ["total precipitation", "precipitation", "tp", "apcp"],
+        "precip": ["total precipitation", "precipitation", "tp", "apcp"],
+        "10si": ["wind speed (gust)", "gust"],
+        "ws": ["wind speed", "10 metre wind speed"],
+        "wind": ["wind speed", "10 metre wind speed", "wind speed (gust)"],
         "tmax": ["maximum temperature", "tmax"],
         "tmin": ["minimum temperature", "tmin"],
         "2t": ["temperature", "2 metre temperature", "t2m"],
-        "2d": ["dew point", "2 metre dew point temperature", "d2m"],
-        "sp": ["surface pressure", "sp", "mslp", "pressure"],
+        "2d": ["dew point temperature", "2 metre dew point", "d2m"],
+        "sp": ["surface pressure", "sp", "mslp"],
+        "10u": ["u-component of wind", "10u", "u-wind"],
+        "10v": ["v-component of wind", "10v", "v-wind"],
     }
+    is_wind = variable_name in ("10si", "ws", "wind", "10u", "10v", "wind_max")
+    is_precip = variable_name in ("tp", "precip", "precip_12h", "precip_1h")
+
     keywords = var_keywords.get(variable_name, [variable_name])
     try:
         import pygrib
@@ -711,23 +712,35 @@ def _pygrib_read_variable(filepath: str, variable_name: str,
                     break
             if matched is not None:
                 break
+        # 风变量：若 10si/gust 找不到，返回 None 而非乱用其他消息
+        if matched is None and is_wind:
+            logger.debug(f"GRIB 中未找到风变量 {variable_name}，返回 None")
+            grbs.close()
+            return results
+        # 危险回退已移除：不再用 message(1) 替代缺失变量
         if matched is None:
-            try:
-                matched = grbs.message(1)
-            except Exception:
-                matched = None
-        if matched is not None:
-            data, lats, lons = matched.data()
-            lons_1d = lons[0, :] if lons.ndim == 2 else lons
-            lats_1d = lats[:, 0] if lats.ndim == 2 else lats
-            for city in cities:
-                if method == "nearest":
-                    val = nearest_interp(lons_1d, lats_1d, data,
-                                         city["lon"], city["lat"])
-                else:
-                    val = bilinear_interp(lons_1d, lats_1d, data,
-                                          city["lon"], city["lat"])
-                results[city["name_short"]] = val
+            grbs.close()
+            return results
+        data, lats, lons = matched.data()
+        lons_1d = lons[0, :] if lons.ndim == 2 else lons
+        lats_1d = lats[:, 0] if lats.ndim == 2 else lats
+        for city in cities:
+            if method == "nearest":
+                val = nearest_interp(lons_1d, lats_1d, data,
+                                    city["lon"], city["lat"])
+            else:
+                val = bilinear_interp(lons_1d, lats_1d, data,
+                                     city["lon"], city["lat"])
+            # 降水：先裁剪负值到0，再做单位转换
+            # ECMWF tp 单位是 m，需转换为 mm（*1000）
+            # NCEP tp 单位是 kg/m² ≈ mm，不需转换
+            units = str(getattr(matched, "units", "")).lower()
+            if val is not None and (is_precip or "precip" in variable_name):
+                if val < 0:
+                    val = 0.0
+                if is_precip and units == "m":
+                    val = val * 1000.0
+            results[city["name_short"]] = val
         grbs.close()
     except ImportError:
         logger.warning("pygrib未安装")
@@ -765,7 +778,7 @@ class ECMWFOpenDataReader(BaseDataReader):
             "https://data.ecmwf.int/forecasts/{date}/{cycle:02d}z/ifs/"
             "{resolution}/oper/{date}{cycle:02d}0000-{fhour:03d}h-oper-fc.{file_format}"
         )
-        self.download = source_config.get("download", True)
+        self.download = source_config.get("download", {}).get("enabled", True)
         self.resolution = source_config.get("resolution", "0p25")
         self.stream = source_config.get("stream", "oper")
         self.file_format = source_config.get("file_format", "grib2")
@@ -923,9 +936,22 @@ class ECMWFOpenDataReader(BaseDataReader):
                     if any(v is not None for v in results.values()):
                         return results
 
+            # 对于风变量，找不到时直接返回 None（不乱用其他消息，不 mock）
+            is_wind = variable_name in (
+                "10si", "ws", "wind", "10u", "10v", "wind_max")
+            if is_wind:
+                logger.debug(
+                    f"{self.name}: 风变量 {variable_name} 未找到，返回 None"
+                )
+                return results
+            # 非风变量（tp 等）找不到时才 mock
             logger.warning(f"{self.name}: ECMWF下载/读取失败，回退到mock")
             return self._mock_read(cities, variable_name)
         except Exception as e:
+            if variable_name in (
+                    "10si", "ws", "wind", "10u", "10v", "wind_max"):
+                logger.debug(f"{self.name}: ECMWF读取异常: {e}，返回 None")
+                return results
             logger.warning(f"{self.name}: ECMWF读取异常: {e}")
             return self._mock_read(cities, variable_name)
 
@@ -1068,7 +1094,7 @@ class NCEPGFSReader(BaseDataReader):
             "gfs.{date}/{time}/atmos/"
             "gfs.t{time}z.pgrb2.0p25.f{step:03d}"
         )
-        self.download = source_config.get("download", True)
+        self.download = source_config.get("download", {}).get("enabled", True)
         self.product = source_config.get("product", "pgrb2.0p25")
         self.model = source_config.get("model", "gfs")
         self.cache_dir = source_config.get("cache_dir", "./.cache/gfs")
@@ -1217,7 +1243,7 @@ class CMAGRAPESReader(BaseDataReader):
         if isinstance(auth, dict):
             self.user_id = auth.get("user_id")
             self.pwd = auth.get("pwd")
-        self.download = source_config.get("download", True)
+        self.download = source_config.get("download", {}).get("enabled", True)
         self.cache_dir = source_config.get("cache_dir", "./.cache/grapes")
         self.max_age_hours = source_config.get("max_age_hours", 24)
         self.forecast_step = source_config.get("forecast_step", 0)
