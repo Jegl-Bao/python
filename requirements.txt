@@ -1,0 +1,11 @@
+# 内蒙古自治区多源融合预报系统 - Python 依赖
+pygrib>=2.1.0
+ecmwf-opendata>=0.1.0
+herbie-data>=2024.0.0
+requests>=2.25.0
+xarray>=2023.0.0
+netCDF4>=1.5.0
+cfgrib>=0.9.0
+numpy>=1.20.0
+matplotlib>=3.3.0
+pandas>=1.2.0

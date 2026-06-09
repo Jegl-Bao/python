@@ -2,7 +2,11 @@
 """
 多源融合预报程序 - 配置文件
 包含内蒙古自治区12个盟市的地理信息和数据源配置
+支持多种真实气象数据源下载与本地缓存
 """
+
+import os
+from typing import Dict
 
 # ============================================================================
 # 内蒙古自治区12个盟市信息
@@ -129,6 +133,18 @@ DATA_SOURCES = [
         },
         "path_pattern": "./data/ec/{date}/EC_{date}{cycle:02d}_{fhour:03d}.grb",
         "enabled": True,
+        "url_template": "https://data.ecmwf.int/forecasts/{date}/{cycle}z/ifs/{resolution}/oper/{date}{cycle}0000-{fhour}h-oper-fc.{file_format}",
+        "download": {
+            "enabled": True,
+            "cache_dir": "./data/EC/",
+            "timeout": 60,
+            "retries": 3,
+            "backend": "ecmwf",
+        },
+        "resolution": "0p4-beta",
+        "stream": "oper",
+        "product": "fc",
+        "file_format": "grib2",
     },
     {
         "name": "GRAPES",
@@ -142,6 +158,18 @@ DATA_SOURCES = [
         },
         "path_pattern": "./data/grapes/{date}/GRAPES_{date}{cycle:02d}_{fhour:03d}.grb",
         "enabled": True,
+        "url_template": "https://data.cma.cn/api/grapes-gfs/{resolution}/{date}/{cycle}/grapes_gfs_{date}{cycle}_f{fhour}.{file_format}",
+        "download": {
+            "enabled": True,
+            "cache_dir": "./data/GRAPES/",
+            "timeout": 60,
+            "retries": 3,
+            "backend": "cma_api",
+        },
+        "resolution": "0p25",
+        "stream": "gfs",
+        "product": "gra grap",
+        "file_format": "grib2",
     },
     {
         "name": "GRAPES_MESO",
@@ -155,6 +183,18 @@ DATA_SOURCES = [
         },
         "path_pattern": "./data/grapes_meso/{date}/GRAPES_MESO_{date}{cycle:02d}_{fhour:03d}.grb",
         "enabled": True,
+        "url_template": "https://data.cma.cn/api/grapes-meso/{resolution}/{date}/{cycle}/grapes_meso_{date}{cycle}_f{fhour}.{file_format}",
+        "download": {
+            "enabled": True,
+            "cache_dir": "./data/GRAPES_MESO/",
+            "timeout": 60,
+            "retries": 3,
+            "backend": "cma_api",
+        },
+        "resolution": "10km",
+        "stream": "meso",
+        "product": "grapes_meso",
+        "file_format": "grib2",
     },
     {
         "name": "NCEP",
@@ -168,6 +208,18 @@ DATA_SOURCES = [
         },
         "path_pattern": "./data/ncep/{date}/NCEP_{date}{cycle:02d}_{fhour:03d}.grb",
         "enabled": True,
+        "url_template": "https://noaa-gfs-bdp-pds.s3.amazonaws.com/gfs.{date}/{cycle}/atmos/gfs.t{cycle}z.pgrb2.{resolution}.f{fhour}",
+        "download": {
+            "enabled": True,
+            "cache_dir": "./data/NCEP/",
+            "timeout": 60,
+            "retries": 3,
+            "backend": "http",
+        },
+        "resolution": "0p25",
+        "stream": "atmos",
+        "product": "gfs",
+        "file_format": "grib2",
     },
     {
         "name": "OBS",
@@ -181,6 +233,18 @@ DATA_SOURCES = [
         },
         "path_pattern": "./data/obs/{date}/OBS_{date}.txt",
         "enabled": True,
+        "url_template": "https://data.rda.ucar.edu/ds083.2/{year}/{month}/fnl_{date}_{cycle}_00.grib2",
+        "download": {
+            "enabled": True,
+            "cache_dir": "./data/OBS/",
+            "timeout": 60,
+            "retries": 3,
+            "backend": "http",
+        },
+        "resolution": "1deg",
+        "stream": "fnl",
+        "product": "analysis",
+        "file_format": "grib2",
     },
 ]
 
@@ -214,12 +278,22 @@ FORECAST_CONFIG = {
     "interpolation_method": "bilinear",
     # 搜索半径（度）
     "search_radius": 1.0,
+    # 数据缓存目录
+    "data_cache_dir": "./data",
+    # 缓存文件最大保留时间（小时）
+    "max_cache_age_hours": 24,
+    # 下载超时时间（秒）
+    "download_timeout": 60,
+    # 下载重试次数
+    "download_retries": 3,
 }
 
 # ============================================================================
 # 输出配置
 # ============================================================================
 OUTPUT_CONFIG = {
+    # 数据缓存根目录
+    "data_cache_dir": "./data",
     # 输出目录
     "output_dir": "./output",
     # 输出格式列表
@@ -240,3 +314,32 @@ OUTPUT_CONFIG = {
         "wind_max": "级",
     },
 }
+
+
+# ============================================================================
+# 辅助函数
+# ============================================================================
+def build_url(source_config: Dict, forecast_date: str, cycle: int, forecast_hours: int, variable: str = "") -> str:
+    defaults = {
+        "date": forecast_date,
+        "cycle": f"{cycle:02d}",
+        "fhour": f"{forecast_hours:03d}",
+        "variable": variable if variable else source_config.get("variable", ""),
+        "resolution": source_config.get("resolution", ""),
+        "stream": source_config.get("stream", ""),
+        "product": source_config.get("product", ""),
+        "file_format": source_config.get("file_format", ""),
+    }
+    url = source_config.get("url_template", "")
+    for key, value in defaults.items():
+        url = url.replace("{" + key + "}", str(value))
+    return url
+
+
+def get_cache_path(source_config: Dict, forecast_date: str, cycle: int, forecast_hours: int) -> str:
+    cache_dir = source_config.get("download", {}).get("cache_dir", "./data")
+    os.makedirs(cache_dir, exist_ok=True)
+    name = source_config.get("name", "data")
+    file_format = source_config.get("file_format", "bin")
+    filename = f"{name}_{forecast_date}_t{cycle:02d}z_f{forecast_hours:03d}.{file_format}"
+    return os.path.join(cache_dir, filename)

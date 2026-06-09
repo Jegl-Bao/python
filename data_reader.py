@@ -545,6 +545,520 @@ class DictDataReader(BaseDataReader):
 
 
 # ============================================================================
+# 新增部分 A：下载与缓存工具函数
+# ============================================================================
+def ensure_cache_dir(cache_dir: str) -> None:
+    """确保缓存目录存在"""
+    if not cache_dir:
+        return
+    os.makedirs(cache_dir, exist_ok=True)
+
+
+def get_cached_filepath(cache_dir: str, url: str) -> str:
+    """生成缓存文件路径（URL哈希 + 原始文件名尾缀）"""
+    import hashlib
+    url_hash = hashlib.md5(url.encode("utf-8")).hexdigest()
+    filename = os.path.basename(url.split("?")[0]) or "data.bin"
+    ext = os.path.splitext(filename)[1] or ".bin"
+    cached_name = f"{url_hash}_{filename}" if filename else f"{url_hash}{ext}"
+    return os.path.join(cache_dir, cached_name)
+
+
+def is_cache_fresh(filepath: str, max_age_hours: int = 24) -> bool:
+    """判断缓存文件是否仍有效"""
+    if not os.path.exists(filepath):
+        return False
+    try:
+        import time
+        mtime = os.path.getmtime(filepath)
+        age_seconds = time.time() - mtime
+        return age_seconds <= max_age_hours * 3600
+    except Exception:
+        return False
+
+
+def http_download_with_retry(url: str, target_path: str,
+                             timeout: int = 60, retries: int = 3,
+                             chunk_size: int = 8192,
+                             user_agent: str = "Mozilla/5.0 multi-source-forecast") -> bool:
+    """带断点续传的HTTP下载，失败重试指数退避"""
+    import time
+    try:
+        import urllib.request as urllib_req
+    except ImportError:
+        logger.warning("urllib不可用，无法执行HTTP下载")
+        return False
+
+    target_dir = os.path.dirname(target_path)
+    if target_dir:
+        ensure_cache_dir(target_dir)
+
+    tmp_path = target_path + ".part"
+    existing_size = 0
+    if os.path.exists(tmp_path):
+        try:
+            existing_size = os.path.getsize(tmp_path)
+        except OSError:
+            existing_size = 0
+
+    for attempt in range(1, retries + 1):
+        try:
+            headers = {"User-Agent": user_agent}
+            if existing_size > 0:
+                headers["Range"] = f"bytes={existing_size}-"
+
+            req = urllib_req.Request(url, headers=headers)
+            mode = "ab" if existing_size > 0 else "wb"
+
+            with urllib_req.urlopen(req, timeout=timeout) as resp, \
+                    open(tmp_path, mode) as f:
+                while True:
+                    chunk = resp.read(chunk_size)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+
+            os.replace(tmp_path, target_path)
+            return True
+        except Exception as e:
+            logger.warning(f"HTTP下载失败 (第{attempt}次, {url}): {e}")
+            if attempt < retries:
+                wait = 2 ** attempt
+                time.sleep(wait)
+                if os.path.exists(tmp_path):
+                    try:
+                        existing_size = os.path.getsize(tmp_path)
+                    except OSError:
+                        existing_size = 0
+            else:
+                if os.path.exists(tmp_path):
+                    try:
+                        os.remove(tmp_path)
+                    except OSError:
+                        pass
+                return False
+    return False
+
+
+def _pygrib_read_variable(filepath: str, variable_name: str,
+                          cities: List[Dict], method: str = "bilinear"
+                          ) -> Dict[str, Optional[float]]:
+    """使用 pygrib 读取 GRIB 文件并按城市坐标插值"""
+    results = {city["name_short"]: None for city in cities}
+    try:
+        import pygrib
+        if not os.path.exists(filepath):
+            return results
+        grbs = pygrib.open(filepath)
+        matched = None
+        for msg in grbs:
+            if variable_name in msg.name.lower() or \
+               variable_name in str(msg.shortName).lower():
+                matched = msg
+                break
+        if matched is None:
+            try:
+                matched = grbs.message(1)
+            except Exception:
+                matched = None
+        if matched is not None:
+            data, lats, lons = matched.data()
+            lons_1d = lons[0, :] if lons.ndim == 2 else lons
+            lats_1d = lats[:, 0] if lats.ndim == 2 else lats
+            for city in cities:
+                if method == "nearest":
+                    val = nearest_interp(lons_1d, lats_1d, data,
+                                         city["lon"], city["lat"])
+                else:
+                    val = bilinear_interp(lons_1d, lats_1d, data,
+                                          city["lon"], city["lat"])
+                results[city["name_short"]] = val
+        grbs.close()
+    except ImportError:
+        logger.warning("pygrib未安装")
+    except Exception as e:
+        logger.warning(f"pygrib读取失败 ({filepath}): {e}")
+    return results
+
+
+def _default_mock_read(reader_name: str, cities: List[Dict],
+                       variable_name: str) -> Dict[str, Optional[float]]:
+    """通用 mock 数据生成"""
+    np.random.seed(hash(f"{reader_name}_{variable_name}") % 2**32)
+    results = {}
+    for city in cities:
+        if "precip" in variable_name or variable_name == "tp":
+            val = float(np.random.gamma(2.0, 2.0))
+        elif "wind" in variable_name or variable_name in ["10si", "ws"]:
+            val = float(np.random.uniform(2.0, 15.0))
+        else:
+            val = float(np.random.uniform(0, 10))
+        results[city["name_short"]] = val
+    return results
+
+
+# ============================================================================
+# 新增部分 B：ECMWF OpenData 读取器
+# ============================================================================
+class ECMWFOpenDataReader(BaseDataReader):
+    """ECMWF 开放数据读取器（ecmwf-opendata 包或 HTTP 直连）"""
+
+    def __init__(self, source_config: Dict, method: str = "bilinear"):
+        super().__init__(source_config, method)
+        self.url_template = source_config.get(
+            "url_template",
+            "https://data.ecmwf.int/forecasts/{date}/{time}/ifs/0p25/"
+            "{stream}/{file_format}/{resolution}/"
+            "{date}{time}0000-{step}h-{stream}.{file_format}"
+        )
+        self.download = source_config.get("download", True)
+        self.resolution = source_config.get("resolution", "0p25")
+        self.stream = source_config.get("stream", "oper")
+        self.file_format = source_config.get("file_format", "grib2")
+        self.cache_dir = source_config.get("cache_dir", "./.cache/ecmwf")
+        self.max_age_hours = source_config.get("max_age_hours", 24)
+        self.forecast_step = source_config.get("forecast_step", 0)
+
+    def _parse_date_hint(self, filepath: str) -> Tuple[str, str, int]:
+        """从 filepath/hint 中解析 date(YYYYMMDD), time(HH), step"""
+        date_str = datetime.now().strftime("%Y%m%d")
+        time_str = "00"
+        step = int(self.forecast_step)
+        try:
+            if filepath and os.path.basename(filepath):
+                m = re.search(r"(\d{8})", filepath)
+                if m:
+                    date_str = m.group(1)
+                m = re.search(r"(\d{10})", filepath)
+                if m:
+                    date_str = m.group(1)[:8]
+                    time_str = m.group(1)[8:10]
+                m = re.search(r"(\d+)h", filepath)
+                if m:
+                    step = int(m.group(1))
+        except Exception:
+            pass
+        return date_str, time_str, step
+
+    def _build_url(self, date_str: str, time_str: str, step: int) -> str:
+        try:
+            return self.url_template.format(
+                date=date_str, time=time_str, step=step,
+                resolution=self.resolution, stream=self.stream,
+                file_format=self.file_format
+            )
+        except Exception as e:
+            logger.warning(f"URL模板构建失败: {e}")
+            return ""
+
+    def _try_ecmwf_opendata(self, url: str, target_path: str) -> bool:
+        """尝试使用 ecmwf-opendata 包下载"""
+        try:
+            from ecmwf.opendata import Client
+            client = Client(source="ecmwf" if "ecmwf" in url else "azure")
+            client.retrieve(
+                request={},
+                target=target_path,
+            )
+            return os.path.exists(target_path) and os.path.getsize(target_path) > 0
+        except ImportError:
+            return False
+        except Exception as e:
+            logger.warning(f"ecmwf-opendata下载失败: {e}")
+            return False
+
+    def read_variable(self, filepath: str, variable_name: str,
+                      cities: List[Dict]) -> Dict[str, Optional[float]]:
+        results = {city["name_short"]: None for city in cities}
+
+        try:
+            date_str, time_str, step = self._parse_date_hint(filepath)
+            url = self._build_url(date_str, time_str, step)
+            if not url:
+                logger.warning(f"{self.name}: 无法构建下载URL，回退到mock")
+                return self._mock_read(cities, variable_name)
+
+            ensure_cache_dir(self.cache_dir)
+            target_path = get_cached_filepath(self.cache_dir, url)
+
+            if is_cache_fresh(target_path, self.max_age_hours):
+                results = _pygrib_read_variable(target_path, variable_name,
+                                                cities, self.method)
+                if any(v is not None for v in results.values()):
+                    return results
+
+            if self.download:
+                ok = self._try_ecmwf_opendata(url, target_path)
+                if not ok:
+                    ok = http_download_with_retry(url, target_path)
+                if ok:
+                    results = _pygrib_read_variable(target_path, variable_name,
+                                                    cities, self.method)
+                    if any(v is not None for v in results.values()):
+                        return results
+
+            logger.warning(f"{self.name}: ECMWF下载/读取失败，回退到mock")
+            return self._mock_read(cities, variable_name)
+        except Exception as e:
+            logger.warning(f"{self.name}: ECMWF读取异常: {e}")
+            return self._mock_read(cities, variable_name)
+
+    def _mock_read(self, cities: List[Dict],
+                   variable_name: str) -> Dict[str, Optional[float]]:
+        return _default_mock_read(self.name, cities, variable_name)
+
+
+# ============================================================================
+# 新增部分 C：NCEP GFS 读取器
+# ============================================================================
+class NCEPGFSReader(BaseDataReader):
+    """NCEP GFS 读取器（herbie 或 HTTP 直连 AWS/NOMADS）"""
+
+    def __init__(self, source_config: Dict, method: str = "bilinear"):
+        super().__init__(source_config, method)
+        self.url_template = source_config.get(
+            "url_template",
+            "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/"
+            "gfs.{date}/{time}/atmos/"
+            "gfs.t{time}z.pgrb2.0p25.f{step:03d}"
+        )
+        self.aws_url_template = source_config.get(
+            "aws_url_template",
+            "https://noaa-gfs-bdp-pds.s3.amazonaws.com/"
+            "gfs.{date}/{time}/atmos/"
+            "gfs.t{time}z.pgrb2.0p25.f{step:03d}"
+        )
+        self.download = source_config.get("download", True)
+        self.product = source_config.get("product", "pgrb2.0p25")
+        self.model = source_config.get("model", "gfs")
+        self.cache_dir = source_config.get("cache_dir", "./.cache/gfs")
+        self.max_age_hours = source_config.get("max_age_hours", 24)
+        self.forecast_step = source_config.get("forecast_step", 0)
+
+    def _parse_date_hint(self, filepath: str) -> Tuple[str, str, int]:
+        date_str = datetime.now().strftime("%Y%m%d")
+        time_str = "00"
+        step = int(self.forecast_step)
+        try:
+            if filepath:
+                m = re.search(r"(\d{8})", filepath)
+                if m:
+                    date_str = m.group(1)
+                m = re.search(r"(\d{10})", filepath)
+                if m:
+                    date_str = m.group(1)[:8]
+                    time_str = m.group(1)[8:10]
+                m = re.search(r"(\d+)h", filepath)
+                if m:
+                    step = int(m.group(1))
+        except Exception:
+            pass
+        return date_str, time_str, step
+
+    def _build_url(self, date_str: str, time_str: str, step: int,
+                   use_aws: bool = False) -> str:
+        tmpl = self.aws_url_template if use_aws else self.url_template
+        try:
+            return tmpl.format(date=date_str, time=time_str, step=int(step))
+        except Exception as e:
+            logger.warning(f"GFS URL模板构建失败: {e}")
+            return ""
+
+    def _try_herbie(self, date_str: str, time_str: str, step: int,
+                    target_path: str) -> bool:
+        """使用 herbie 库下载"""
+        try:
+            from herbie import Herbie
+            date_obj = datetime.strptime(date_str + time_str, "%Y%m%d%H")
+            H = Herbie(
+                date_obj.strftime("%Y-%m-%d %H"),
+                model=self.model,
+                product=self.product,
+                fxx=step,
+                verbose=False,
+            )
+            ds = H.xarray(".*")
+            try:
+                import xarray as xr
+                if hasattr(ds, "to_netcdf"):
+                    tmp_nc = target_path + ".nc"
+                    ds.to_netcdf(tmp_nc)
+                    if os.path.exists(tmp_nc):
+                        os.replace(tmp_nc, target_path)
+                        return True
+            except Exception:
+                pass
+            local_path = getattr(H, "local_artifacts", None)
+            if local_path and os.path.exists(str(local_path)):
+                import shutil
+                shutil.copy2(str(local_path), target_path)
+                return True
+            return False
+        except ImportError:
+            return False
+        except Exception as e:
+            logger.warning(f"herbie下载失败: {e}")
+            return False
+
+    def read_variable(self, filepath: str, variable_name: str,
+                      cities: List[Dict]) -> Dict[str, Optional[float]]:
+        results = {city["name_short"]: None for city in cities}
+
+        try:
+            date_str, time_str, step = self._parse_date_hint(filepath)
+
+            ensure_cache_dir(self.cache_dir)
+            url_main = self._build_url(date_str, time_str, step, use_aws=False)
+            target_path = get_cached_filepath(self.cache_dir, url_main or
+                                              f"gfs_{date_str}_{time_str}_{step}")
+
+            if is_cache_fresh(target_path, self.max_age_hours):
+                results = _pygrib_read_variable(target_path, variable_name,
+                                                cities, self.method)
+                if any(v is not None for v in results.values()):
+                    return results
+
+            if self.download:
+                ok = self._try_herbie(date_str, time_str, step, target_path)
+                if not ok and url_main:
+                    ok = http_download_with_retry(url_main, target_path)
+                if not ok:
+                    url_aws = self._build_url(date_str, time_str, step,
+                                              use_aws=True)
+                    if url_aws:
+                        ok = http_download_with_retry(url_aws, target_path)
+                if ok:
+                    results = _pygrib_read_variable(target_path, variable_name,
+                                                    cities, self.method)
+                    if any(v is not None for v in results.values()):
+                        return results
+
+            logger.warning(f"{self.name}: GFS下载/读取失败，回退到mock")
+            return self._mock_read(cities, variable_name)
+        except Exception as e:
+            logger.warning(f"{self.name}: GFS读取异常: {e}")
+            return self._mock_read(cities, variable_name)
+
+    def _mock_read(self, cities: List[Dict],
+                   variable_name: str) -> Dict[str, Optional[float]]:
+        return _default_mock_read(self.name, cities, variable_name)
+
+
+# ============================================================================
+# 新增部分 D：CMA GRAPES 读取器
+# ============================================================================
+class CMAGRAPESReader(BaseDataReader):
+    """CMA-GFS / GRAPES_MESO 读取器（data.cma.cn API 或 mock 回退）"""
+
+    def __init__(self, source_config: Dict, method: str = "bilinear"):
+        super().__init__(source_config, method)
+        self.stream = source_config.get("stream", "grapes_gfs")
+        self.url_template = source_config.get(
+            "url_template",
+            "https://data.cma.cn/api/forecast/{stream}/{date}/{time}/"
+            "{step}.grib2"
+        )
+        self.user_id = None
+        self.pwd = None
+        auth = source_config.get("auth", {}) or {}
+        if isinstance(auth, dict):
+            self.user_id = auth.get("user_id")
+            self.pwd = auth.get("pwd")
+        self.download = source_config.get("download", True)
+        self.cache_dir = source_config.get("cache_dir", "./.cache/grapes")
+        self.max_age_hours = source_config.get("max_age_hours", 24)
+        self.forecast_step = source_config.get("forecast_step", 0)
+
+    def _parse_date_hint(self, filepath: str) -> Tuple[str, str, int]:
+        date_str = datetime.now().strftime("%Y%m%d")
+        time_str = "00"
+        step = int(self.forecast_step)
+        try:
+            if filepath:
+                m = re.search(r"(\d{8})", filepath)
+                if m:
+                    date_str = m.group(1)
+                m = re.search(r"(\d{10})", filepath)
+                if m:
+                    date_str = m.group(1)[:8]
+                    time_str = m.group(1)[8:10]
+                m = re.search(r"(\d+)h", filepath)
+                if m:
+                    step = int(m.group(1))
+        except Exception:
+            pass
+        return date_str, time_str, step
+
+    def _build_url(self, date_str: str, time_str: str, step: int) -> str:
+        try:
+            return self.url_template.format(
+                date=date_str, time=time_str, step=step,
+                stream=self.stream
+            )
+        except Exception as e:
+            logger.warning(f"GRAPES URL模板构建失败: {e}")
+            return ""
+
+    def _cma_api_download(self, url: str, target_path: str) -> bool:
+        """通过 data.cma.cn API 下载（需 userId/pwd 认证）"""
+        if not self.user_id or not self.pwd:
+            logger.info(f"{self.name}: 未提供CMA认证信息(user_id/pwd)，跳过API下载")
+            return False
+        try:
+            import urllib.request as urllib_req
+            import urllib.parse as urllib_parse
+            auth_params = urllib_parse.urlencode({
+                "userId": self.user_id,
+                "pwd": self.pwd,
+            })
+            sep = "&" if "?" in url else "?"
+            full_url = f"{url}{sep}{auth_params}"
+            return http_download_with_retry(full_url, target_path)
+        except Exception as e:
+            logger.warning(f"{self.name}: CMA API下载失败: {e}")
+            return False
+
+    def read_variable(self, filepath: str, variable_name: str,
+                      cities: List[Dict]) -> Dict[str, Optional[float]]:
+        results = {city["name_short"]: None for city in cities}
+
+        try:
+            date_str, time_str, step = self._parse_date_hint(filepath)
+            url = self._build_url(date_str, time_str, step)
+
+            ensure_cache_dir(self.cache_dir)
+            cache_key = url or f"grapes_{self.stream}_{date_str}_{time_str}_{step}"
+            target_path = get_cached_filepath(self.cache_dir, cache_key)
+
+            if is_cache_fresh(target_path, self.max_age_hours):
+                results = _pygrib_read_variable(target_path, variable_name,
+                                                cities, self.method)
+                if any(v is not None for v in results.values()):
+                    return results
+
+            if self.download:
+                ok = self._cma_api_download(url, target_path)
+                if ok:
+                    results = _pygrib_read_variable(target_path, variable_name,
+                                                    cities, self.method)
+                    if any(v is not None for v in results.values()):
+                        return results
+                else:
+                    logger.info(
+                        f"{self.name}: CMA接口不可用或缺少认证，回退到mock"
+                    )
+
+            return self._mock_read(cities, variable_name)
+        except Exception as e:
+            logger.warning(f"{self.name}: GRAPES读取异常: {e}")
+            return self._mock_read(cities, variable_name)
+
+    def _mock_read(self, cities: List[Dict],
+                   variable_name: str) -> Dict[str, Optional[float]]:
+        return _default_mock_read(self.name, cities, variable_name)
+
+
+# ============================================================================
 # 读取器工厂
 # ============================================================================
 READER_CLASSES = {
@@ -554,6 +1068,9 @@ READER_CLASSES = {
     "csv": CSVDataReader,
     "json": JSONDataReader,
     "dict": DictDataReader,
+    "ecmwf": ECMWFOpenDataReader,
+    "gfs": NCEPGFSReader,
+    "grapes": CMAGRAPESReader,
 }
 
 
@@ -562,8 +1079,12 @@ def create_reader(source_config: Dict, method: str = "bilinear",
     """
     根据配置创建相应的数据读取器
     """
-    reader_class = READER_CLASSES.get(source_config.get("type", "text"),
-                                      TextDataReader)
+    backend = source_config.get("backend")
+    if backend and backend in READER_CLASSES:
+        reader_class = READER_CLASSES[backend]
+    else:
+        reader_class = READER_CLASSES.get(source_config.get("type", "text"),
+                                          TextDataReader)
     if reader_class == DictDataReader:
         return reader_class(source_config, in_memory_data, method)
     return reader_class(source_config, method)
